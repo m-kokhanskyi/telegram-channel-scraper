@@ -16,7 +16,7 @@ const getChat = async () => {
   return selectedChat
 }
 
-const chatHistory = async (chat) => {
+const chatHistory = async (chatSource, chatInput) => {
   let lastIdofMsgs = await db.getLastMsgId();
 
   const max = config.telegram.msgHistory.maxMsg
@@ -29,8 +29,8 @@ const chatHistory = async (chat) => {
     let history = await telegram('messages.getHistory', {
       peer: {
         _: 'inputPeerChannel',
-        channel_id: chat.id,
-        access_hash: chat.access_hash
+        channel_id: chatSource.id,
+        access_hash: chatSource.access_hash
       },
       max_id: -offsetId,
       offset: -full.length,
@@ -42,6 +42,7 @@ const chatHistory = async (chat) => {
     messages.length > 0 && (offsetId = messages[0].id);
 
     if (messages.length > 0) {
+      // message = messages[0];
       await db.updateLastMsgId(messages[0].id)
     }
     history = null;
@@ -50,38 +51,27 @@ const chatHistory = async (chat) => {
 
   const showNew = full.filter(({ id }) => id > lastIdofMsgs)
   const noRepeats = uniqueArray(showNew, 'id')
-  const usersMsg = noRepeats.filter(filterUsersMessages)
-  
-  if (usersMsg.length>0){
-    const done = await sendToServer(usersMsg)
-    printMessages(usersMsg)
-    console.log("saved to server: ",done)
-    console.log("Last msg id ", messages[0].id)
+  let usersMsg = noRepeats.filter(filterUsersMessages)
+  let messagesFind = [];
+  messagesFind = usersMsg.filter(({ message }) => message.indexOf('Житомир') > -1);
+  if (usersMsg.filter(({ message }) => message.indexOf('Пулин') > -1).length > 0) {
+    messagesFind = [...messagesFind, usersMsg.filter(({ message }) => message.indexOf('Пулин') > -1)];
   }
-  lastIdofMsgs = await db.getLastMsgId();
-  const dt = new Date()
-  const hours = dt.getHours()
-  const mins = dt.getMinutes()
-  console.log( `${hours}:${mins} - [${lastIdofMsgs}]`)
+  if (messagesFind.length > 0){
+    messagesFind.forEach(m => sendToChannel(chatInput, m));
+    printMessages(messagesFind)
+  }
 }
-
-let sent = []
-
-const sendToServer = async (messages) => {
-	let toPush = messages.filter(m => {
-		return sent.indexOf( m ) < 0;
-	})
-	messages.forEach(m => {
-		sent.push(m.id)
-	});
-  const response = await fetch(config.server,
-    {
-      method: 'POST',
-      body: JSON.stringify(toPush),
-      headers: { "Content-Type": "application/json" }
-    })
-  const json = await response.json();
-  return json
+const sendToChannel = async (chatInput, message) => {
+  await telegram('messages.sendMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: chatInput.id,
+      access_hash: chatInput.access_hash,
+    },
+    message: message.message,
+    random_id: Math.ceil(Math.random() * 0xffffff) + Math.ceil(Math.random() * 0xffffff),
+  })
 }
 
 const printMessages = (messages) => {

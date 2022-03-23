@@ -1,7 +1,8 @@
 const config = require('../config');
 const fs = require("fs");
 const DBFILE = config.dbfile;
-const CHATDB = config.chatdb;
+const CHAT_SOURCE_DB = config.chat_source_db;
+const CHAT_INPUT_DB = config.chat_input_db;
 
 async function readDb(file) {
     return new Promise((res, rej) => {
@@ -41,9 +42,9 @@ async function getLastMsgId() {
     }
 }
 
-async function getChat() {
+async function getChatSource() {
     try {
-        const readFile = await readDb(CHATDB);
+        const readFile = await readDb(CHAT_SOURCE_DB);
         const file = JSON.parse(readFile)
         return file.chat;
     } catch (err) {
@@ -52,14 +53,35 @@ async function getChat() {
     }
 }
 
-async function updateChat(obj) {
+async function updateChatSource(obj) {
     try {
         const work = await writeFile({
             chat: obj
-        }, CHATDB)
+        }, CHAT_SOURCE_DB)
     } catch (err) {
         console.log("error, couldnt save chat to file " + err)
     }
 }
 
-module.exports = { updateLastMsgId, getLastMsgId, getChat, updateChat }
+async function getChatInput() {
+    try {
+        const readFile = await readDb(CHAT_INPUT_DB);
+        const file = JSON.parse(readFile)
+        return file.chat;
+    } catch (err) {
+        console.log(err);
+        return false;
+    }
+}
+
+async function updateChatInput(obj) {
+    try {
+        const work = await writeFile({
+            chat: obj
+        }, CHAT_INPUT_DB)
+    } catch (err) {
+        console.log("error, couldnt save chat to file " + err)
+    }
+}
+
+module.exports = { updateLastMsgId, getLastMsgId, getChatSource, updateChat: updateChatSource, getChatInput, updateChatInput }
